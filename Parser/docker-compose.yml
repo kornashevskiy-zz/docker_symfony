@@ -1,0 +1,69 @@
+version: '2'
+services:
+  nginx:
+    build: ./docker/nginx
+    depends_on:
+      - php7
+      - db
+    volumes:
+      - ./app:/var/www
+    ports:
+      - "80:80"
+  php7:
+    build: ./docker/php7
+    ports:
+      - "9000"
+    volumes:
+      - ./app:/var/www/
+    working_dir: /var/www
+    environment: 
+      XDEBUG_CONFIG: remote_host=192.168.50.71 #Подставить свой удаленный IP
+      PHP_IDE_CONFIG: "serverName=parser"
+      SYMFONY__DATABASE__NAME: parser
+      SYMFONY__DATABASE__USER: root
+      SYMFONY__DATABASE__PASSWORD: root
+  db:
+    container_name: db
+    build: ./docker/mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./docker/mysql/mysql-data:/var/lib/mysql
+      - ./docker/mysql/dumps:/docker-entrypoint-initdb.d
+  rabbitmq:
+      build: ./docker/rabbitmq
+      ports:
+        - "5673:5672"
+        - "15673:15672"
+      environment:
+        RABBITMQ_DEFAULT_USER: avito
+        RABBITMQ_DEFAULT_PASS: 6omKUdBf
+        RABBITMQ_DEFAULT_VHOST: /avito
+  worker_supervisor:
+      build: ./docker/php7_worker_supervisor
+      ports:
+        - "9001:9001"
+      volumes:
+        - .:/var/www
+        - ./docker/php7_worker_supervisor/conf.d:/etc/supervisor/conf.d
+      working_dir: /var/www
+      environment:
+        SYMFONY__DATABASE__NAME: parser
+        SYMFONY__DATABASE__USER: root
+        SYMFONY__DATABASE__PASSWORD: root
+        SYMFONY__RABBITMQ__USER: avito
+        SYMFONY__RABBITMQ__PASS: 6omKUdBf
+        SYMFONY__RABBITMQ__VHOST: /avito
+        SYMFONY__AVITO__PREFIX: 84976af4932dab45a115ac5b9f69aa6a
+      links:
+        - db
+        - rabbitmq
+      depends_on:
+        - db
+        - php7
+        - rabbitmq
